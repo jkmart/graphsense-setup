@@ -1,0 +1,73 @@
+version: "3.5"
+
+services:
+
+  bitcoin-client:
+    image: jkmart/bitcoin-client
+#    build:
+#      context: btc-client
+    volumes:
+      - ${BTC_BLOCK_DATADIR}:/opt/graphsense/data
+      - ${BTC_CLIENT_CONF}:/opt/graphsense/client.conf
+    ports:
+      - "8332:8332"
+    restart: always
+
+  cassandra:
+    image: cassandra:3.11.9
+    ports:
+      - "9042:9042"
+    environment:
+      - "MAX_HEAP_SIZE=256M"
+      - "HEAP_NEWSIZE=128M"
+
+  transformation:
+    build:
+      context: graphsense-transformation
+    ports:
+      - "4040:4040"
+      - "4041:4041"
+      - "4042:4042"
+    environment:
+      - SPARK_UI_PORT=${SPARK_UI_PORT}
+      - SPARK_DRIVER_PORT=${SPARK_DRIVER_PORT}
+      - SPARK_BLOCKMGR_PORT=${SPARK_BLOCKMGR_PORT}
+      - SPARK_DRIVER_HOST=${SPARK_DRIVER_HOST}
+      - SPARK_MASTER=${SPARK_MASTER}
+      - SPARK_EXECUTOR_MEMORY=${SPARK_EXECUTOR_MEMORY}
+      - SPARK_LOCAL_DIR=${SPARK_LOCAL_DIR}
+      - CASSANDRA_HOST=${CASSANDRA_HOST}
+      - CURRENCY=${CURRENCY}
+      - RAW_KEYSPACE=${RAW_KEYSPACE}
+      - TGT_KEYSPACE=${TGT_KEYSPACE}
+      - CHECKPOINT_DIR=${CHECKPOINT_DIR}
+#    volumes:
+#      - "$SPARK_LOCAL_DIR:/var"
+    entrypoint: ["/opt/graphsense/docker-entrypoint.sh"]
+    command: ["/opt/graphsense/submit.sh"]
+    depends_on:
+      - spark-master
+      - cassandra
+
+  spark-master:
+    image: docker.io/bitnami/spark:3
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - '8080:8080'
+
+  spark-worker-01:
+    image: docker.io/bitnami/spark:3
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
