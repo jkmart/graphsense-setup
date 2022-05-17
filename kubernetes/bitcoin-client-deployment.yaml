@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: bitcoin-client
+  name: bitcoin-client
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: bitcoin-client
+    spec:
+      containers:
+      - image: jkmart/bitcoin-client:fuse
+        name: bitcoin-client
+        ports:
+        - containerPort: 8332
+        resources:
+          requests:
+            cpu: "1"
+            ram: "4Gi"
+        volumeMounts:
+        - name: config
+          mountPath: /opt/graphsense/
+          readOnly: true
+        env:
+          - name: GOOGLE_APPLICATION_CREDENTIALS
+            value: /etc/gcp/sa_credentials.json
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+        lifecycle:
+          postStart:
+            exec:
+              # TODO use actual GCS bucket-name
+              command: [ "gcsfuse", "-o", "nonempty", "bucket-name", "/opt/graphsense/data" ]
+          preStop:
+            exec:
+              command: [ "fusermount", "-u", "/opt/graphsense/data" ]
+      restartPolicy: Always
+      # Change to NFS
+      volumes:
+      - name: sa-volume
+        secret:
+          secretName: gcs-sa-secret
+          items:
+            - key: sa_json
+              path: sa_credentials.json
+      # Add the client config file
+      - name: config
+        configMap:
+          # Provide the name of the ConfigMap you want to mount.
+          name: btc-client-config
+          # An array of keys from the ConfigMap to create as files
+          items:
+            - key: "client.conf"
+              path: "client.conf"
+  selector:
+    matchLabels:
+      app: bitcoin-client
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gcs-sa-secret
+data:
+  # TODO add credentials
+  sa_json: YOUR_SERVICE_ACCOUNT_BASE64_KEY
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: btc-client-config
+data:
+  # file-like keys
+  client.conf: |
+    # server=1 tells Bitcoin-Qt and bitcoind to accept JSON-RPC commands
+    server=1
+    rpcclienttimeout=30
+    # By default, only RPC connections from localhost are allowed.
+    # Specify as many rpcallowip= settings as you like to allow connections from other hosts,
+    # either as a single IPv4/IPv6 or with a subnet specification.
+    rpcport=8332
+    # API requests need to access non-wallet blockchain transactions by their IDs,
+    # following is used enable the transaction index in the Bitcoin Core database
+    txindex=1

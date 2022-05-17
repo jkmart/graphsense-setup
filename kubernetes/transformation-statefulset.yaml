@@ -1,0 +1,334 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: transformation
+  name: transformation
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: transformation
+    spec:
+      initContainers:
+        - name: cassandra-setup
+          image: cassandra:3.11.9
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          env:
+            - name: CASSANDRA_HOST
+              value: cassandra
+          command: [ "/bin/bash", "-c" ]
+          args: [ "sleep 60 && echo loading cassandra keyspace && cqlsh ${CASSANDRA_HOST} -f /config/raw_schema.cql && cqlsh ${CASSANDRA_HOST} -f /config/transformed_schema.cql" ]
+      containers:
+        - args:
+            - /opt/graphsense/submit.sh
+          command:
+            - /opt/graphsense/docker-entrypoint.sh
+          env:
+            - name: CASSANDRA_HOST
+              value: cassandra
+            # PVC Data Directory
+            - name: CHECKPOINT_DIR
+              value: /data/transformer
+            - name: CURRENCY
+              value: BTC
+            - name: RAW_KEYSPACE
+              value: btc_raw
+            - name: TGT_KEYSPACE
+              value: btc_transformed
+            - name: SPARK_UI_PORT
+              value: "4040"
+            - name: SPARK_DRIVER_PORT
+              value: "4041"
+            - name: SPARK_BLOCKMGR_PORT
+              value: "4042"
+            - name: SPARK_DRIVER_HOST
+              value: transformation
+            - name: SPARK_EXECUTOR_MEMORY
+              value: 1g
+            - name: SPARK_LOCAL_DIR
+              value: /data/transformer
+            - name: SPARK_MASTER
+              value: spark://spark-master:7077
+          image: transformation
+          name: transformation
+          ports:
+            - containerPort: 4040
+            - containerPort: 4041
+            - containerPort: 4042
+          resources:
+            requests:
+              cpu: "1"
+              ram: "60Gi"
+          volumeMounts:
+          - name: data
+            mountPath: /data
+      restartPolicy: Always
+      volumes:
+        # Add the Cassandra config file
+        - name: config
+          configMap:
+            # Provide the name of the ConfigMap you want to mount.
+            name: cassandra-config
+            # Schemas from ConfigMap as files
+            items:
+              - key: "schema_raw.cql"
+                path: "schema_raw.cql"
+              - key: "schema_transformed.cql"
+                path: "schema_transformed.cql"
+  selector:
+    matchLabels:
+      app: transformation
+  serviceName: transformation
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cassandra-config
+data:
+  schema_raw.cql: |
+    CREATE
+    KEYSPACE IF NOT EXISTS btc_raw WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+    
+    USE
+    btc_raw;
+    
+    CREATE TABLE IF NOT EXISTS block
+    (
+        block_id_group  int,
+        block_id        int,
+        block_hash      blob,
+        timestamp       int,
+        no_transactions int,
+        PRIMARY KEY (block_id_group, block_id)
+    ) WITH CLUSTERING ORDER BY (block_id DESC);
+    
+    CREATE TYPE IF NOT EXISTS tx_input_output (
+    address list<text>,
+    value bigint,
+    address_type smallint
+    );
+    
+    CREATE TABLE IF NOT EXISTS transaction
+    (
+        tx_id_group  int,
+        tx_id        bigint,
+        tx_hash      blob,
+        block_id     int,
+        timestamp    int,
+        coinbase     boolean,
+        total_input  bigint,
+        total_output bigint,
+        inputs       list<FROZEN<tx_input_output>>,
+        outputs      list<FROZEN<tx_input_output>>,
+        coinjoin     boolean,
+        PRIMARY KEY (tx_id_group, tx_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS transaction_by_tx_prefix
+    (
+        tx_prefix text,
+        tx_hash   blob,
+        tx_id     bigint,
+        PRIMARY KEY (tx_prefix, tx_hash)
+    );
+    
+    CREATE TYPE IF NOT EXISTS tx_summary (
+    tx_id bigint,
+    no_inputs int,
+    no_outputs int,
+    total_input bigint,
+    total_output bigint
+    );
+    
+    CREATE TABLE IF NOT EXISTS block_transactions
+    (
+        block_id_group int,
+        block_id       int,
+        txs            list<FROZEN<tx_summary>>,
+        PRIMARY KEY (block_id_group, block_id)
+    ) WITH CLUSTERING ORDER BY (block_id DESC);
+    
+    CREATE TABLE IF NOT EXISTS exchange_rates
+    (
+        date        text PRIMARY KEY,
+        fiat_values map<text,
+        float>
+    );
+    
+    CREATE TABLE IF NOT EXISTS summary_statistics
+    (
+        id        text PRIMARY KEY,
+        no_blocks int,
+        no_txs    bigint,
+        timestamp int
+    );
+    
+    CREATE TABLE IF NOT EXISTS configuration
+    (
+        id                text PRIMARY KEY,
+        block_bucket_size int,
+        tx_prefix_length  int,
+        tx_bucket_size    int
+    );
+
+  schema_transformed.cql: |
+    CREATE
+    KEYSPACE IF NOT EXISTS btc_transformed WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+    
+    USE
+    btc_transformed;
+    
+    CREATE TYPE IF NOT EXISTS currency (
+    value bigint,
+    fiat_values list<float>
+    );
+    
+    CREATE TABLE IF NOT EXISTS exchange_rates
+    (
+        block_id    int PRIMARY KEY,
+        fiat_values list< float >
+    );
+    
+    CREATE TABLE IF NOT EXISTS address_transactions
+    (
+        address_id_group int,
+        address_id       int,
+        tx_id            bigint,
+        value            bigint,
+        is_outgoing      boolean,
+        PRIMARY KEY (address_id_group, address_id, is_outgoing, tx_id)
+    ) WITH CLUSTERING ORDER BY (address_id DESC, is_outgoing DESC, tx_id DESC);
+    
+    CREATE TABLE IF NOT EXISTS address
+    (
+        address_id_group int,
+        address_id       int,
+        address          text,
+        cluster_id       int,
+        no_incoming_txs  int,
+        no_outgoing_txs  int,
+        first_tx_id      bigint,
+        last_tx_id       bigint,
+        total_received   FROZEN <currency>,
+        total_spent      FROZEN <currency>,
+        in_degree        int,
+        out_degree       int,
+        PRIMARY KEY (address_id_group, address_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS address_ids_by_address_prefix
+    (
+        address_prefix text,
+        address        text,
+        address_id     int,
+        PRIMARY KEY (address_prefix, address)
+    );
+    
+    CREATE TABLE IF NOT EXISTS address_incoming_relations
+    (
+        dst_address_id_group int,
+        dst_address_id       int,
+        src_address_id       int,
+        no_transactions      int,
+        estimated_value      FROZEN <currency>,
+        PRIMARY KEY (dst_address_id_group, dst_address_id, src_address_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS address_outgoing_relations
+    (
+        src_address_id_group int,
+        src_address_id       int,
+        dst_address_id       int,
+        no_transactions      int,
+        estimated_value      FROZEN <currency>,
+        PRIMARY KEY (src_address_id_group, src_address_id, dst_address_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS cluster_transactions
+    (
+        cluster_id_group int,
+        cluster_id       int,
+        tx_id            bigint,
+        value            bigint,
+        is_outgoing      boolean,
+        PRIMARY KEY (cluster_id_group, cluster_id, is_outgoing, tx_id)
+    ) WITH CLUSTERING ORDER BY (cluster_id DESC, is_outgoing DESC, tx_id DESC);
+    
+    CREATE TABLE IF NOT EXISTS cluster
+    (
+        cluster_id_group int,
+        cluster_id       int,
+        no_addresses     int,
+        no_incoming_txs  int,
+        no_outgoing_txs  int,
+        first_tx_id      bigint,
+        last_tx_id       bigint,
+        total_received   FROZEN <currency>,
+        total_spent      FROZEN <currency>,
+        in_degree        int,
+        out_degree       int,
+        PRIMARY KEY (cluster_id_group, cluster_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS cluster_addresses
+    (
+        cluster_id_group int,
+        cluster_id       int,
+        address_id       int,
+        PRIMARY KEY (cluster_id_group, cluster_id, address_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS cluster_incoming_relations
+    (
+        dst_cluster_id_group int,
+        dst_cluster_id       int,
+        src_cluster_id       int,
+        no_transactions      int,
+        estimated_value      FROZEN <currency>,
+        PRIMARY KEY (dst_cluster_id_group, dst_cluster_id, src_cluster_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS cluster_outgoing_relations
+    (
+        src_cluster_id_group int,
+        src_cluster_id       int,
+        dst_cluster_id       int,
+        no_transactions      int,
+        estimated_value      FROZEN <currency>,
+        PRIMARY KEY (src_cluster_id_group, src_cluster_id, dst_cluster_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS summary_statistics
+    (
+        timestamp            int,
+        no_blocks            bigint PRIMARY KEY,
+        no_transactions      bigint,
+        no_addresses         bigint,
+        no_address_relations bigint,
+        no_clusters          bigint,
+        no_cluster_relations bigint
+    );
+    
+    CREATE TABLE IF NOT EXISTS configuration
+    (
+        keyspace_name         text PRIMARY KEY,
+        bucket_size           int,
+        address_prefix_length int,
+        bech_32_prefix        text,
+        coinjoin_filtering    boolean,
+        fiat_currencies       list<text>
+    );
