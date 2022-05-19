@@ -63,7 +63,7 @@ spec:
           resources:
             requests:
               cpu: "1"
-              ram: "60Gi"
+              memory: "60Gi"
           volumeMounts:
           - name: data
             mountPath: /data

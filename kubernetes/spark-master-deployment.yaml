@@ -31,7 +31,7 @@ spec:
         resources:
           requests:
             cpu: "1"
-            ram: "4Gi"
+            memory: "4Gi"
       restartPolicy: Always
   selector:
     matchLabels:
