@@ -6,6 +6,7 @@ metadata:
     app: transformation
   name: transformation
 spec:
+  type: LoadBalancer
   ports:
     - name: "spark-ui"
       port: 4040
