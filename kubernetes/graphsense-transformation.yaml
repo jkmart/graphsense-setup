@@ -1,3 +1,25 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: transformation
+  name: transformation
+spec:
+  ports:
+    - name: "spark-ui"
+      port: 4040
+      targetPort: 4040
+    - name: "spark-driver"
+      port: 4041
+      targetPort: 4041
+    - name: "spark-blockmgr"
+      port: 4042
+      targetPort: 4042
+  selector:
+    app: transformation
+
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -24,7 +46,9 @@ spec:
           command: [ "/bin/bash", "-c" ]
           args: [ "sleep 60 && echo loading cassandra keyspace && cqlsh ${CASSANDRA_HOST} -f /config/raw_schema.cql && cqlsh ${CASSANDRA_HOST} -f /config/transformed_schema.cql" ]
       containers:
-        - args:
+        - image: jkmart/graphsense-transformation:0.5.2
+          name: transformation
+          args:
             - /opt/graphsense/submit.sh
           command:
             - /opt/graphsense/docker-entrypoint.sh
@@ -54,8 +78,6 @@ spec:
               value: /data/transformer
             - name: SPARK_MASTER
               value: spark://spark-master:7077
-          image: transformation
-          name: transformation
           ports:
             - containerPort: 4040
             - containerPort: 4041
@@ -65,8 +87,9 @@ spec:
               cpu: "1"
               memory: "60Gi"
           volumeMounts:
-          - name: data
-            mountPath: /data
+            -
+            - name: data
+              mountPath: /data
       restartPolicy: Always
       volumes:
         # Add the Cassandra config file
@@ -91,7 +114,7 @@ spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 10Gi
+            storage: 100Gi
 
 ---
 apiVersion: v1

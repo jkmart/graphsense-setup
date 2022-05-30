@@ -1,13 +1,25 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: bitcoin-client
+  name: bitcoin-client
+spec:
+  ports:
+    - port: 8332
+      targetPort: 8332
+  selector:
+    app: bitcoin-client
+---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   labels:
     app: bitcoin-client
   name: bitcoin-client
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   template:
     metadata:
       labels:
@@ -23,36 +35,13 @@ spec:
             cpu: "1"
             memory: "4Gi"
         volumeMounts:
+        - name: data
+          mountPath: /opt/graphsense/data
         - name: config
           mountPath: /opt/graphsense/
           readOnly: true
-        - name: sa-volume
-          mountPath: /etc/gcp/
-        env:
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /etc/gcp/sa_credentials.json
-        securityContext:
-          privileged: true
-          capabilities:
-            add:
-              - SYS_ADMIN
-        lifecycle:
-          postStart:
-            exec:
-              # TODO use actual GCS bucket-name
-              command: [ "gcsfuse", "-o", "nonempty", "bucket-name", "/opt/graphsense/data" ]
-          preStop:
-            exec:
-              command: [ "fusermount", "-u", "/opt/graphsense/data" ]
       restartPolicy: Always
-      # Change to NFS
       volumes:
-      - name: sa-volume
-        secret:
-          secretName: gcs-sa-secret
-          items:
-            - key: sa_json
-              path: sa_credentials.json
       # Add the client config file
       - name: config
         configMap:
@@ -62,9 +51,18 @@ spec:
           items:
             - key: "client.conf"
               path: "client.conf"
+  serviceName: bitcoin-client
   selector:
     matchLabels:
       app: bitcoin-client
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1000Gi
 
 ---
 apiVersion: v1
