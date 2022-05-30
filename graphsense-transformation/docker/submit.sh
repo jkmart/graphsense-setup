@@ -25,7 +25,7 @@ echo -en "Starting Spark job ...\n" \
   --conf spark.cassandra.connection.host="$CASSANDRA_HOST" \
   --conf spark.local.dir="$SPARK_LOCAL_DIR" \
   --conf spark.default.parallelism=400 \
-  --conf spark.driver.memory="92G" \
+  --conf spark.driver.memory="8G" \
   --conf spark.sql.session.timeZone=UTC \
   --conf spark.serializer="org.apache.spark.serializer.KryoSerializer" \
   --conf spark.sql.extensions=com.datastax.spark.connector.CassandraSparkExtensions \

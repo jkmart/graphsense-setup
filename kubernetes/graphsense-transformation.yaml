@@ -47,6 +47,7 @@ spec:
           args: [ "sleep 60 && echo loading cassandra keyspace && cqlsh ${CASSANDRA_HOST} -f /config/schema_raw.cql && cqlsh ${CASSANDRA_HOST} -f /config/schema_transformed.cql" ]
       containers:
         - image: jkmart/graphsense-transformation:0.5.2
+          imagePullPolicy: Always
           name: transformation
           args:
             - /opt/graphsense/submit.sh
@@ -89,7 +90,7 @@ spec:
           resources:
             requests:
               cpu: "4"
-              memory: "100Gi"
+              memory: "64Gi"
           volumeMounts:
             - name: data
               mountPath: /data
