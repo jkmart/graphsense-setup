@@ -37,8 +37,8 @@ spec:
         - containerPort: 7077
         resources:
           requests:
-            cpu: "1"
-            memory: "4Gi"
+            cpu: "4"
+            memory: "128Gi"
       restartPolicy: Always
   selector:
     matchLabels:
