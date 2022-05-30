@@ -26,14 +26,14 @@ spec:
         - name: SPARK_SSL_ENABLED
           value: "no"
         - name: SPARK_WORKER_CORES
-          value: "1"
+          value: "2"
         - name: SPARK_WORKER_MEMORY
           value: 4G
         image: docker.io/bitnami/spark:3
         name: spark-worker
         resources:
           requests:
-            cpu: "1"
+            cpu: "2"
             memory: "4.5Gi"
       restartPolicy: Always
   selector:
