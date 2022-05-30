@@ -37,7 +37,7 @@ spec:
         - name: cassandra-setup
           image: cassandra:3.11.9
           volumeMounts:
-            - name: config
+            - name: cassandra-config
               mountPath: /config
               readOnly: true
           env:
@@ -87,14 +87,15 @@ spec:
               cpu: "1"
               memory: "60Gi"
           volumeMounts:
-            - name: config
-              mountPath: /config/
             - name: data
               mountPath: /data
+      securityContext:
+        runAsUser: 10000
+        fsGroup: 10000
       restartPolicy: Always
       volumes:
         # Add the Cassandra config file
-        - name: config
+        - name: cassandra-config
           configMap:
             # Provide the name of the ConfigMap you want to mount.
             name: cassandra-config
