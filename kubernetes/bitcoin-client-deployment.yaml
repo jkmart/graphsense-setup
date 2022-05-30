@@ -26,6 +26,8 @@ spec:
         - name: config
           mountPath: /opt/graphsense/
           readOnly: true
+        - name: sa-volume
+          mountPath: /etc/gcp/
         env:
           - name: GOOGLE_APPLICATION_CREDENTIALS
             value: /etc/gcp/sa_credentials.json
