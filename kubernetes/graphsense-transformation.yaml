@@ -74,7 +74,9 @@ spec:
             - name: SPARK_BLOCKMGR_PORT
               value: "4042"
             - name: SPARK_DRIVER_HOST
-              value: transformation
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
             - name: SPARK_EXECUTOR_MEMORY
               value: 512M
             - name: SPARK_EXECUTOR_INSTANCES
