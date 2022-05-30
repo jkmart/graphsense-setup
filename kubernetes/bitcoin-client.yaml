@@ -41,6 +41,9 @@ spec:
           mountPath: /opt/graphsense/
           readOnly: true
       restartPolicy: Always
+      securityContext:
+        runAsUser: 10000
+        fsGroup: 10000
       volumes:
       # Add the client config file
       - name: config
