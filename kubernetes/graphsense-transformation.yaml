@@ -87,7 +87,8 @@ spec:
               cpu: "1"
               memory: "60Gi"
           volumeMounts:
-            -
+            - name: config
+              mountPath: /config/
             - name: data
               mountPath: /data
       restartPolicy: Always
