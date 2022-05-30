@@ -6,7 +6,6 @@ metadata:
     app: transformation
   name: transformation
 spec:
-  type: LoadBalancer
   ports:
     - name: "spark-ui"
       port: 4040
@@ -86,6 +85,8 @@ spec:
               value: 4G
             - name: SPARK_MASTER
               value: spark://spark-master:7077
+            - name: SPARK_UI_REVERSEPROXY
+              value: "true"
           ports:
             - containerPort: 4040
             - containerPort: 4041

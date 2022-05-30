@@ -29,6 +29,8 @@ spec:
           value: "2"
         - name: SPARK_WORKER_MEMORY
           value: 8G
+        - name: SPARK_UI_REVERSEPROXY
+          value: "true"
         image: docker.io/bitnami/spark:3
         name: spark-worker
         resources:
