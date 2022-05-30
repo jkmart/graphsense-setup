@@ -66,15 +66,6 @@ spec:
 
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: gcs-sa-secret
-data:
-  # TODO add credentials
-  sa_json: YOUR_SERVICE_ACCOUNT_BASE64_KEY
-
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: btc-client-config
