@@ -44,7 +44,7 @@ spec:
             - name: CASSANDRA_HOST
               value: cassandra
           command: [ "/bin/bash", "-c" ]
-          args: [ "sleep 60 && echo loading cassandra keyspace && cqlsh ${CASSANDRA_HOST} -f /config/raw_schema.cql && cqlsh ${CASSANDRA_HOST} -f /config/transformed_schema.cql" ]
+          args: [ "sleep 60 && echo loading cassandra keyspace && cqlsh ${CASSANDRA_HOST} -f /config/schema_raw.cql && cqlsh ${CASSANDRA_HOST} -f /config/schema_transformed.cql" ]
       containers:
         - image: jkmart/graphsense-transformation:0.5.2
           name: transformation
