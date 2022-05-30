@@ -28,13 +28,13 @@ spec:
         - name: SPARK_WORKER_CORES
           value: "1"
         - name: SPARK_WORKER_MEMORY
-          value: 2G
+          value: 4G
         image: docker.io/bitnami/spark:3
         name: spark-worker
         resources:
           requests:
             cpu: "1"
-            memory: "2.5Gi"
+            memory: "4.5Gi"
       restartPolicy: Always
   selector:
     matchLabels:
