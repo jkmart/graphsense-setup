@@ -73,9 +73,11 @@ spec:
             - name: SPARK_DRIVER_HOST
               value: transformation
             - name: SPARK_EXECUTOR_MEMORY
-              value: 1g
-            - name: SPARK_LOCAL_DIR
-              value: /data/transformer
+              value: 512M
+            - name: SPARK_EXECUTOR_INSTANCES
+              value: "1"
+            - name: SPARK_DRIVER_MEMORY
+              value: 4G
             - name: SPARK_MASTER
               value: spark://spark-master:7077
           ports:
