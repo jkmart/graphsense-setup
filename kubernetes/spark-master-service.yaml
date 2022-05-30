@@ -5,6 +5,7 @@ metadata:
     app: spark-master
   name: spark-master
 spec:
+  type: LoadBalancer
   ports:
   - name: ui
     port: 8080
