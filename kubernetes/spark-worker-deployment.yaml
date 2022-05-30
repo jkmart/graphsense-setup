@@ -28,7 +28,7 @@ spec:
         - name: SPARK_WORKER_CORES
           value: "4"
         - name: SPARK_WORKER_MEMORY
-          value: 64G
+          value: 128G
         image: docker.io/bitnami/spark:3
         name: spark-worker
         resources:
