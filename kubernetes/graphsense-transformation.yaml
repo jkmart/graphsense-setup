@@ -58,6 +58,8 @@ spec:
             # PVC Data Directory
             - name: CHECKPOINT_DIR
               value: /data/transformer
+            - name: SPARK_LOCAL_DIR
+              value: /data/transformer
             - name: CURRENCY
               value: BTC
             - name: RAW_KEYSPACE
