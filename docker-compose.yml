@@ -21,6 +21,28 @@ services:
       - "MAX_HEAP_SIZE=256M"
       - "HEAP_NEWSIZE=128M"
 
+  # BTC
+  parser-btc:
+    image: jkmart/graphsense-blocksci-ingest:0.5.2
+    volumes:
+      - ./graphsense-blocksci/data:/var/data/blocksci_data/:rw
+      - $BTC_BLOCK_DATADIR:/var/data/block_data/:ro
+      - ./graphsense-blocksci/conf/btc.cfg:/opt/graphsense/blocksci.cfg
+      - ./graphsense-blocksci/scripts:/opt/scripts
+    command: ["blocksci_parser", "/opt/graphsense/blocksci.cfg", "update"]
+
+  ingest-btc:
+    image: jkmart/graphsense-blocksci-ingest:0.5.2
+    environment:
+      - CASSANDRA_HOST=cassandra
+      - RAW_KEYSPACE=${RAW_KEYSPACE}
+      - PROCESSES=2
+    volumes:
+      - ./graphsense-blocksci/data:/var/data/blocksci_data/:ro
+      - ./graphsense-blocksci/conf/btc.cfg:/opt/graphsense/blocksci.cfg
+    entrypoint: ["/docker-entrypoint.sh"]
+    command: ["/usr/local/bin/ingest.sh"]
+
   transformation:
     build:
       context: graphsense-transformation
