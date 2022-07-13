@@ -1,0 +1,52 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    run: btc-ingest-job
+  name: btc-ingest-job
+spec:
+  template:
+    spec:
+      containers:
+        - image: jkmart/graphsense-blocksci-ingest:0.5.2
+          imagePullPolicy: IfNotPresent
+          name: parse
+          command: ["/docker-entrypoint.sh"]
+          args: ["/usr/local/bin/ingest.sh"]
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4G"
+          volumeMounts:
+            - name: parse
+              mountPath: /var/data/blocksci_data/
+              readOnly: true
+            - name: config
+              mountPath: /opt/graphsense/
+              readOnly: true
+          env:
+            - name: CASSANDRA
+              value: cassandra
+            - name: RAW_KEYSPACE
+              value: btc_raw
+            - name: PROCESSES
+              value: "12"
+      restartPolicy: OnFailure
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        fsGroup: 10000
+        runAsUser: 10000
+        runAsGroup: 10000
+      volumes:
+        - name: parse
+          persistentVolumeClaim:
+            claimName: btc-parse-claim
+        - name: config
+          configMap:
+            # Provide the name of the ConfigMap you want to mount.
+            name: graphsense-parse-config
+            # An array of keys from the ConfigMap to create as files
+            items:
+              - key: blocksci.json
+                path: blocksci.cfg
