@@ -23,8 +23,8 @@ spec:
         - image: jkmart/graphsense-blocksci-ingest:0.5.2
           imagePullPolicy: IfNotPresent
           name: parse
-          command: ["blocksci_parser"]
-          args: ["/opt/graphsense/blocksci.cfg", "update"]
+          command: ["/bin/bash", "-l", "-c"]
+          args: ["rm /var/data/blocksci_data/blocksci_parser.pid && blocksci_parser /opt/graphsense/blocksci.cfg update"]
           resources:
             requests:
               cpu: "4"
@@ -90,3 +90,13 @@ data:
       },
       "version": 5
     }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: btc-parse-pdb
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      run: btc-parse-job
